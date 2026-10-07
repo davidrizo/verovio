@@ -958,8 +958,7 @@ static const InputFormatRegistrar s_gabcFormat({ GABC, "GABC", { "gabc" }, false
 // `name:value;` attributes — terminated by `%%` on its own line before the body. The body in
 // turn uses the `lyric(music)` syntax where the music is enclosed in parentheses and the pitch
 // letters are restricted to a..p, plus prefix/suffix punctuation (see S-GABC grammar, grule
-// body / grule syllable / grule syl_musical_symbols, in the .tex referenced from CLAUDE.md
-// section "GABC / S-GABC Specification Reference"). The `%%` separator is the most reliable
+// body / grule syllable / grule syl_musical_symbols, in the S-GABC paper). The `%%` separator is the most reliable
 // marker because it cannot legally appear inside MEI, ABC (which starts with `X:`), or PAE.
 // We only look at the prefix to avoid scanning very large files.
 static const InputFormatRegistrar s_gabcDetector(
