@@ -922,13 +922,13 @@ void View::DrawDurationElement(DeviceContext *dc, LayerElement *element, Layer *
     assert(staff);
     assert(measure);
 
-    if (dynamic_cast<Chord *>(element)) {
+    if (element->Is(CHORD)) {
         this->DrawChord(dc, element, layer, staff, measure);
     }
-    else if (dynamic_cast<Note *>(element)) {
+    else if (element->Is(NOTE)) {
         this->DrawNote(dc, element, layer, staff, measure);
     }
-    else if (dynamic_cast<Rest *>(element)) {
+    else if (element->Is(REST)) {
         this->DrawRest(dc, element, layer, staff, measure);
     }
 }

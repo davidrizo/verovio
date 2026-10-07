@@ -90,7 +90,8 @@ bool BarLine::IsDrawnThrough(const StaffGrp *staffGrp) const
         if (staffGrp->HasBarThru()) {
             return (staffGrp->GetBarThru() == BOOLEAN_true);
         }
-        staffGrp = dynamic_cast<const StaffGrp *>(staffGrp->GetParent());
+        const Object *parent = staffGrp->GetParent();
+        staffGrp = (parent && parent->Is(STAFFGRP)) ? vrv_cast<const StaffGrp *>(parent) : NULL;
     }
     return false;
 }
@@ -98,7 +99,8 @@ bool BarLine::IsDrawnThrough(const StaffGrp *staffGrp) const
 std::pair<bool, double> BarLine::GetLengthFromContext(const StaffDef *staffDef) const
 {
     // First check the parent measure
-    const Measure *measure = dynamic_cast<const Measure *>(this->GetParent());
+    const Object *parent = this->GetParent();
+    const Measure *measure = (parent && parent->Is(MEASURE)) ? vrv_cast<const Measure *>(parent) : NULL;
     if (measure && measure->HasBarLen()) {
         return { true, measure->GetBarLen() };
     }
@@ -123,7 +125,8 @@ std::pair<bool, double> BarLine::GetLengthFromContext(const StaffDef *staffDef) 
 std::pair<bool, data_BARMETHOD> BarLine::GetMethodFromContext(const StaffDef *staffDef) const
 {
     // First check the parent measure
-    const Measure *measure = dynamic_cast<const Measure *>(this->GetParent());
+    const Object *parent = this->GetParent();
+    const Measure *measure = (parent && parent->Is(MEASURE)) ? vrv_cast<const Measure *>(parent) : NULL;
     if (measure && measure->HasBarMethod()) {
         return { true, measure->GetBarMethod() };
     }
@@ -148,7 +151,8 @@ std::pair<bool, data_BARMETHOD> BarLine::GetMethodFromContext(const StaffDef *st
 std::pair<bool, int> BarLine::GetPlaceFromContext(const StaffDef *staffDef) const
 {
     // First check the parent measure
-    const Measure *measure = dynamic_cast<const Measure *>(this->GetParent());
+    const Object *parent = this->GetParent();
+    const Measure *measure = (parent && parent->Is(MEASURE)) ? vrv_cast<const Measure *>(parent) : NULL;
     if (measure && measure->HasBarPlace()) {
         return { true, measure->GetBarPlace() };
     }
