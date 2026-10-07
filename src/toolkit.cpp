@@ -22,6 +22,7 @@
 #include "editortoolkit_neume.h"
 #include "filereader.h"
 #include "findfunctor.h"
+#include "inputformat.h"
 #include "ioabc.h"
 #include "iocmme.h"
 #include "iodarms.h"
@@ -171,93 +172,14 @@ bool Toolkit::SetInputFrom(std::string const &inputFrom)
 
 FileFormat Toolkit::IdentifyInputFrom(const std::string &data)
 {
-#ifdef MUSICXML_DEFAULT_HUMDRUM
-    FileFormat musicxmlDefault = MUSICXMLHUM;
-#else
-    FileFormat musicxmlDefault = MUSICXML;
-#endif
-
     if (data.empty()) {
         return UNKNOWN;
     }
     if (data[0] == 0) {
         return UNKNOWN;
     }
-    std::string excerpt = data.substr(0, 2000);
-    std::string::size_type found = excerpt.find("Group memberships:");
-    if (found != std::string::npos) {
-        // MuseData may contain '@' as first character, so needs
-        // to be checked before PAE identification.
-        return MUSEDATAHUM;
-    }
-    if (data[0] == '@' || data[0] == '{') {
-        return PAE;
-    }
-    if (data[0] == '*' || data[0] == '!') {
-        return HUMDRUM;
-    }
-    if (data[0] == 'X') {
-        return ABC;
-    }
-    if (data[0] == '%' && data.size() > 1) {
-        return (data[1] == 'a') ? ABC : PAE;
-    }
-    if ((unsigned char)data[0] == 0xff || (unsigned char)data[0] == 0xfe) {
-        // Handle UTF-16 content here later.
-        std::cerr << "Warning: Cannot yet auto-detect format of UTF-16 data files." << std::endl;
-        return UNKNOWN;
-    }
-    const int searchLimit = 600;
-    std::string initial = data.substr(0, searchLimit);
-    if (data[0] == '<') {
-        // <mei> == root node for standard organization of MEI data
-        // <pages> == root node for pages organization of MEI data
-        // <score-partwise> == root node for part-wise organization of MusicXML data
-        // <score-timewise> == root node for time-wise organization of MusicXML data
-        // <opus> == root node for multi-movement/work organization of MusicXML data
-
-        if (std::regex_search(initial, std::regex("<(verovio-serialization)[\\s>]"))) {
-            return SERIALIZATION;
-        }
-        if (std::regex_search(initial, std::regex("<(mei|music|pages)[\\s>]"))) {
-            return MEI;
-        }
-        if (std::regex_search(initial, std::regex("<(!DOCTYPE )?(score-partwise|opus|score-timewise)[\\s>]"))) {
-            return musicxmlDefault;
-        }
-        if (std::regex_search(initial, std::regex("<(Piece xmlns=\"http://www.cmme.org\")[\\s>]"))) {
-            return CMME;
-        }
-        LogWarning("Warning: Trying to load unknown XML data which cannot be identified.");
-        return UNKNOWN;
-    }
-    if (initial.find("\n!!") != std::string::npos) {
-        // Case where there are empty lines before content in Humdrum files.
-        return HUMDRUM;
-    }
-    if (initial.find("\n**") != std::string::npos) {
-        // Case where there are empty lines before content in Humdrum files.
-        return HUMDRUM;
-    }
-    if (initial.find("\nCUT[") != std::string::npos) {
-        // Title record for a melody in EsAC format.
-        return ESAC;
-    }
-    // 17-may-2026 GABC auto-detection. A GABC file always carries a header block — a sequence of
-    // `name:value;` attributes — terminated by `%%` on its own line before the body. The body in
-    // turn uses the `lyric(music)` syntax where the music is enclosed in parentheses and the pitch
-    // letters are restricted to a..p, plus prefix/suffix punctuation (see S-GABC grammar, grule
-    // body / grule syllable / grule syl_musical_symbols, in the .tex referenced from CLAUDE.md
-    // section "GABC / S-GABC Specification Reference"). The `%%` separator is the most reliable
-    // marker because it cannot legally appear inside MEI, ABC (which starts with `X:`), or PAE.
-    // We only look at the prefix to avoid scanning very large files.
-    if (initial.find("\n%%") != std::string::npos || initial.compare(0, 3, "%%\n") == 0) {
-        return GABC;
-    }
-
-    // Assume that the input is MEI if other input types were not detected.
-    // This means that DARMS cannot be auto-detected.
-    return MEI;
+    // The detectors are registered by the formats themselves (see InputFormatRegistry)
+    return InputFormatRegistry::GetInstance().Detect(data);
 }
 
 void Toolkit::ResetMidiDoc()
@@ -550,47 +472,13 @@ bool Toolkit::LoadData(const std::string &data, bool resetLogBuffer)
     if (inputFrom == AUTO) {
         inputFrom = IdentifyInputFrom(data);
     }
-    if (inputFrom == ABC) {
-#ifndef NO_ABC_SUPPORT
-        input = new ABCInput(&m_doc);
-#else
-        LogError("ABC import is not supported in this build.");
+    const InputFormatRegistry::Format *format = InputFormatRegistry::GetInstance().Find(inputFrom);
+    if (format && !format->available) {
+        LogError("%s import is not supported in this build.", format->label.c_str());
         return false;
-#endif
     }
-    else if (inputFrom == GABC) {
-#ifndef NO_GABC_SUPPORT
-        input = new GABCInput(&m_doc);
-#else
-        LogError("GABC import is not supported in this build.");
-        return false;
-#endif
-    }
-    else if (inputFrom == PAE) {
-#ifndef NO_PAE_SUPPORT
-        input = new PAEInput(&m_doc);
-#else
-        LogError("Plaine & Easie import is not supported in this build.");
-        return false;
-#endif
-    }
-    else if (inputFrom == DARMS) {
-#ifndef NO_DARMS_SUPPORT
-        input = new DarmsInput(&m_doc);
-#else
-        LogError("DARMS import is not supported in this build.");
-        return false;
-#endif
-    }
-    else if (inputFrom == VOLPIANO) {
-        input = new VolpianoInput(&m_doc);
-    }
-    else if (inputFrom == CMME) {
-        if (m_options->m_durationEquivalence.GetValue() != DURATION_EQ_minima) {
-            LogWarning("CMME input uses 'minima' duration equivalence, changing the option accordingly.");
-            m_options->m_durationEquivalence.SetValue(DURATION_EQ_minima);
-        }
-        input = new CmmeInput(&m_doc);
+    else if (format && format->create) {
+        input = format->create(&m_doc);
     }
 #ifndef NO_HUMDRUM_SUPPORT
     else if (inputFrom == HUMDRUM) {
@@ -653,18 +541,6 @@ bool Toolkit::LoadData(const std::string &data, bool resetLogBuffer)
         input = new MEIInput(&m_doc);
     }
 #endif
-    else if (inputFrom == MEI) {
-        input = new MEIInput(&m_doc);
-    }
-    else if (inputFrom == SERIALIZATION) {
-        MEIInput *meiInput = new MEIInput(&m_doc);
-        meiInput->SetDeserializing(true);
-        input = meiInput;
-    }
-    else if (inputFrom == MUSICXML) {
-        // This is the direct converter from MusicXML to MEI using iomusicxml:
-        input = new MusicXmlInput(&m_doc);
-    }
 #ifndef NO_HUMDRUM_SUPPORT
     else if (inputFrom == MUSICXMLHUM) {
         // This is the indirect converter from MusicXML to MEI using iohumdrum:
@@ -2451,5 +2327,66 @@ void Toolkit::LogRuntime() const
     LogError("Runtime clock is not supported in this build.");
 #endif
 }
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+// Formats converted through Humdrum are driven by Toolkit::LoadData (no factory)
+static const InputFormatRegistrar s_autoFormat({ AUTO, "auto", { "auto" }, true, nullptr });
+static const InputFormatRegistrar s_humdrumFormat({ HUMDRUM, "Humdrum", { "humdrum", "hum" }, true, nullptr });
+static const InputFormatRegistrar s_hummeiFormat({ HUMMEI, "Humdrum", {}, true, nullptr });
+static const InputFormatRegistrar s_musicxmlHumFormat({ MUSICXMLHUM, "MusicXML", { "musicxml-hum" }, true, nullptr });
+static const InputFormatRegistrar s_meiHumFormat({ MEIHUM, "MEI", { "mei-hum" }, true, nullptr });
+static const InputFormatRegistrar s_musedataFormat(
+    { MUSEDATAHUM, "MuseData", { "md", "musedata", "musedata-hum" }, true, nullptr });
+static const InputFormatRegistrar s_esacFormat({ ESAC, "EsAC", { "esac" }, true, nullptr });
+
+// MuseData may contain '@' as first character, so needs to be checked before PAE identification.
+static const InputFormatRegistrar s_musedataDetector(
+    100, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if (data.substr(0, 2000).find("Group memberships:") != std::string::npos) return MUSEDATAHUM;
+        return std::nullopt;
+    });
+
+static const InputFormatRegistrar s_humdrumDetector(
+    300, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if (data[0] == '*' || data[0] == '!') return HUMDRUM;
+        return std::nullopt;
+    });
+
+static const InputFormatRegistrar s_utf16Detector(
+    600, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if ((unsigned char)data[0] == 0xff || (unsigned char)data[0] == 0xfe) {
+            // Handle UTF-16 content here later.
+            std::cerr << "Warning: Cannot yet auto-detect format of UTF-16 data files." << std::endl;
+            return UNKNOWN;
+        }
+        return std::nullopt;
+    });
+
+// XML data that none of the XML formats (priorities 700-799) recognised
+static const InputFormatRegistrar s_unknownXmlDetector(
+    790, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if (data[0] == '<') {
+            LogWarning("Warning: Trying to load unknown XML data which cannot be identified.");
+            return UNKNOWN;
+        }
+        return std::nullopt;
+    });
+
+// Case where there are empty lines before content in Humdrum files.
+static const InputFormatRegistrar s_humdrumLateDetector(
+    800, [](const std::string &, const std::string &head) -> std::optional<FileFormat> {
+        if (head.find("\n!!") != std::string::npos || head.find("\n**") != std::string::npos) return HUMDRUM;
+        return std::nullopt;
+    });
+
+// Title record for a melody in EsAC format.
+static const InputFormatRegistrar s_esacDetector(
+    900, [](const std::string &, const std::string &head) -> std::optional<FileFormat> {
+        if (head.find("\nCUT[") != std::string::npos) return ESAC;
+        return std::nullopt;
+    });
 
 } // namespace vrv

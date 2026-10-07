@@ -26,6 +26,7 @@
 #include "dot.h"
 #include "fermata.h"
 #include "gracegrp.h"
+#include "inputformat.h"
 #include "keyaccid.h"
 #include "keysig.h"
 #include "layer.h"
@@ -5179,5 +5180,23 @@ bool PAEInput::ParseDuration(
 #endif // USE_PAE_OLD_PARSER
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+#ifndef NO_PAE_SUPPORT
+static const InputFormatRegistrar s_paeFormat(
+    { PAE, "Plaine & Easie", { "pae" }, true, [](Doc *doc) -> Input * { return new PAEInput(doc); } });
+#else
+static const InputFormatRegistrar s_paeFormat({ PAE, "Plaine & Easie", { "pae" }, false, nullptr });
+#endif
+
+// PAE data starts with '@' (key: value) or '{' (JSON)
+static const InputFormatRegistrar s_paeDetector(
+    200, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if (data[0] == '@' || data[0] == '{') return PAE;
+        return std::nullopt;
+    });
 
 } // namespace vrv

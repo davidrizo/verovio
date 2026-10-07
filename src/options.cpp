@@ -18,6 +18,7 @@
 //----------------------------------------------------------------------------
 
 #include "attconverter.h"
+#include "inputformat.h"
 #include "vrv.h"
 #include "vrvdef.h"
 
@@ -2028,56 +2029,9 @@ bool Options::SetOutputTo(std::string const &outputTo)
 
 bool Options::SetInputFrom(std::string const &inputFrom)
 {
-    if (inputFrom == "abc") {
-        m_inputFromFormat = ABC;
-    }
-    else if (inputFrom == "pae") {
-        m_inputFromFormat = PAE;
-    }
-    else if (inputFrom == "darms") {
-        m_inputFromFormat = DARMS;
-    }
-    else if (inputFrom == "volpiano") {
-        m_inputFromFormat = VOLPIANO;
-    }
-    else if (inputFrom == "cmme.xml") {
-        m_inputFromFormat = CMME;
-    }
-    else if (inputFrom == "esac") {
-        m_inputFromFormat = ESAC;
-    }
-    else if (inputFrom == "gabc") {
-        m_inputFromFormat = GABC;
-    }
-    else if ((inputFrom == "humdrum") || (inputFrom == "hum")) {
-        m_inputFromFormat = HUMDRUM;
-    }
-    else if (inputFrom == "mei") {
-        m_inputFromFormat = MEI;
-    }
-    else if ((inputFrom == "musicxml") || (inputFrom == "xml")) {
-        m_inputFromFormat = MUSICXML;
-    }
-    else if (inputFrom == "md") {
-        m_inputFromFormat = MUSEDATAHUM;
-    }
-    else if (inputFrom == "musedata") {
-        m_inputFromFormat = MUSEDATAHUM;
-    }
-    else if (inputFrom == "musedata-hum") {
-        m_inputFromFormat = MUSEDATAHUM;
-    }
-    else if (inputFrom == "musicxml-hum") {
-        m_inputFromFormat = MUSICXMLHUM;
-    }
-    else if (inputFrom == "mei-hum") {
-        m_inputFromFormat = MEIHUM;
-    }
-    else if (inputFrom == "mei-pb-serialized") {
-        m_inputFromFormat = SERIALIZATION;
-    }
-    else if (inputFrom == "auto") {
-        m_inputFromFormat = AUTO;
+    const InputFormatRegistry::Format *format = InputFormatRegistry::GetInstance().FindByName(inputFrom);
+    if (format) {
+        m_inputFromFormat = format->id;
     }
     else {
         LogError("Input format '%s' is not supported", inputFrom.c_str());

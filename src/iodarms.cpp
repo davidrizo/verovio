@@ -13,6 +13,10 @@
 
 //----------------------------------------------------------------------------
 
+#include "inputformat.h"
+
+//----------------------------------------------------------------------------
+
 #ifndef NO_DARMS_SUPPORT
 
 #include "clef.h"
@@ -529,5 +533,16 @@ bool DarmsInput::Import(const std::string &data_str)
 }
 
 #endif /* NO_DARMS_SUPPORT */
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+#ifndef NO_DARMS_SUPPORT
+static const InputFormatRegistrar s_darmsFormat(
+    { DARMS, "DARMS", { "darms" }, true, [](Doc *doc) -> Input * { return new DarmsInput(doc); } });
+#else
+static const InputFormatRegistrar s_darmsFormat({ DARMS, "DARMS", { "darms" }, false, nullptr });
+#endif
 
 } // namespace vrv

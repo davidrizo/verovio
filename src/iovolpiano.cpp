@@ -19,6 +19,7 @@
 #include "barline.h"
 #include "clef.h"
 #include "doc.h"
+#include "inputformat.h"
 #include "layer.h"
 #include "mdiv.h"
 #include "measure.h"
@@ -153,5 +154,12 @@ bool VolpianoInput::Import(const std::string &volpiano)
 
     return true;
 }
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+static const InputFormatRegistrar s_volpianoFormat(
+    { VOLPIANO, "Volpiano", { "volpiano" }, true, [](Doc *doc) -> Input * { return new VolpianoInput(doc); } });
 
 } // namespace vrv

@@ -6,6 +6,7 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #include "iomei.h"
+#include "inputformat.h"
 
 //----------------------------------------------------------------------------
 
@@ -9412,5 +9413,35 @@ pugi::xml_document MEIInputExtended::FromJson(const jsonxx::Object &json)
     jsonToNode(json, doc);
     return doc;
 }
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+static const InputFormatRegistrar s_meiFormat(
+    { MEI, "MEI", { "mei" }, true, [](Doc *doc) -> Input * { return new MEIInput(doc); } });
+
+static const InputFormatRegistrar s_serializationFormat(
+    { SERIALIZATION, "MEI serialization", { "mei-pb-serialized" }, true, [](Doc *doc) -> Input * {
+         MEIInput *input = new MEIInput(doc);
+         input->SetDeserializing(true);
+         return input;
+     } });
+
+static const InputFormatRegistrar s_serializationDetector(
+    700, [](const std::string &data, const std::string &head) -> std::optional<FileFormat> {
+        if (data[0] == '<' && std::regex_search(head, std::regex("<(verovio-serialization)[\\s>]"))) {
+            return SERIALIZATION;
+        }
+        return std::nullopt;
+    });
+
+// <mei> == root node for standard organization of MEI data
+// <pages> == root node for pages organization of MEI data
+static const InputFormatRegistrar s_meiDetector(
+    710, [](const std::string &data, const std::string &head) -> std::optional<FileFormat> {
+        if (data[0] == '<' && std::regex_search(head, std::regex("<(mei|music|pages)[\\s>]"))) return MEI;
+        return std::nullopt;
+    });
 
 } // namespace vrv

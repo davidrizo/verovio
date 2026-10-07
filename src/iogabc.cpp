@@ -33,6 +33,7 @@
 #include "divline.h"
 #include "doc.h"
 #include "episema.h"
+#include "inputformat.h"
 #include "keyaccid.h"
 #include "keysig.h"
 #include "layer.h"
@@ -941,5 +942,30 @@ int GABCInput::ProcessBarline(const std::string &music, int currentIndex, Layer 
 
     return processedChars;
 }
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+#ifndef NO_GABC_SUPPORT
+static const InputFormatRegistrar s_gabcFormat(
+    { GABC, "GABC", { "gabc" }, true, [](Doc *doc) -> Input * { return new GABCInput(doc); } });
+#else
+static const InputFormatRegistrar s_gabcFormat({ GABC, "GABC", { "gabc" }, false, nullptr });
+#endif
+
+// 17-may-2026 GABC auto-detection. A GABC file always carries a header block — a sequence of
+// `name:value;` attributes — terminated by `%%` on its own line before the body. The body in
+// turn uses the `lyric(music)` syntax where the music is enclosed in parentheses and the pitch
+// letters are restricted to a..p, plus prefix/suffix punctuation (see S-GABC grammar, grule
+// body / grule syllable / grule syl_musical_symbols, in the .tex referenced from CLAUDE.md
+// section "GABC / S-GABC Specification Reference"). The `%%` separator is the most reliable
+// marker because it cannot legally appear inside MEI, ABC (which starts with `X:`), or PAE.
+// We only look at the prefix to avoid scanning very large files.
+static const InputFormatRegistrar s_gabcDetector(
+    950, [](const std::string &, const std::string &head) -> std::optional<FileFormat> {
+        if (head.find("\n%%") != std::string::npos || head.compare(0, 3, "%%\n") == 0) return GABC;
+        return std::nullopt;
+    });
 
 } // namespace vrv

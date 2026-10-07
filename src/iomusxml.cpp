@@ -42,6 +42,7 @@
 #include "grpsym.h"
 #include "hairpin.h"
 #include "harm.h"
+#include "inputformat.h"
 #include "instrdef.h"
 #include "keyaccid.h"
 #include "label.h"
@@ -5416,5 +5417,32 @@ void MusicXmlInput::MidiToPitch(int midi, std::string &step, int &alter, int &oc
 }
 
 #endif // NO_MUSICXML_SUPPORT
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+#ifndef NO_MUSICXML_SUPPORT
+static const InputFormatRegistrar s_musicxmlFormat(
+    { MUSICXML, "MusicXML", { "musicxml", "xml" }, true, [](Doc *doc) -> Input * { return new MusicXmlInput(doc); } });
+#else
+static const InputFormatRegistrar s_musicxmlFormat({ MUSICXML, "MusicXML", { "musicxml", "xml" }, false, nullptr });
+#endif
+
+// <score-partwise> == root node for part-wise organization of MusicXML data
+// <score-timewise> == root node for time-wise organization of MusicXML data
+// <opus> == root node for multi-movement/work organization of MusicXML data
+static const InputFormatRegistrar s_musicxmlDetector(
+    720, [](const std::string &data, const std::string &head) -> std::optional<FileFormat> {
+        if (data[0] == '<'
+            && std::regex_search(head, std::regex("<(!DOCTYPE )?(score-partwise|opus|score-timewise)[\\s>]"))) {
+#ifdef MUSICXML_DEFAULT_HUMDRUM
+            return MUSICXMLHUM;
+#else
+            return MUSICXML;
+#endif
+        }
+        return std::nullopt;
+    });
 
 } // namespace vrv

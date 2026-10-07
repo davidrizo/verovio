@@ -27,6 +27,7 @@
 #include "fermata.h"
 #include "hairpin.h"
 #include "harm.h"
+#include "inputformat.h"
 #include "layer.h"
 #include "mdiv.h"
 #include "measure.h"
@@ -1816,5 +1817,30 @@ void ABCInput::ReadMusicCode(const std::string &musicCode, Section *section)
 }
 
 #endif /* NO_ABC_SUPPORT */
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+#ifndef NO_ABC_SUPPORT
+static const InputFormatRegistrar s_abcFormat(
+    { ABC, "ABC", { "abc" }, true, [](Doc *doc) -> Input * { return new ABCInput(doc); } });
+#else
+static const InputFormatRegistrar s_abcFormat({ ABC, "ABC", { "abc" }, false, nullptr });
+#endif
+
+// ABC files start with 'X:'
+static const InputFormatRegistrar s_abcDetector(
+    400, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if (data[0] == 'X') return ABC;
+        return std::nullopt;
+    });
+
+// A '%' first line is either an ABC comment (%abc) or a PAE comment
+static const InputFormatRegistrar s_abcPaeCommentDetector(
+    500, [](const std::string &data, const std::string &) -> std::optional<FileFormat> {
+        if (data[0] == '%' && data.size() > 1) return (data[1] == 'a') ? ABC : PAE;
+        return std::nullopt;
+    });
 
 } // namespace vrv

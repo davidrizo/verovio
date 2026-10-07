@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cassert>
 #include <fstream>
+#include <regex>
 #include <sstream>
 #include <string>
 
@@ -27,6 +28,7 @@
 #include "doc.h"
 #include "dot.h"
 #include "genericlayerelement.h"
+#include "inputformat.h"
 #include "keyaccid.h"
 #include "keysig.h"
 #include "label.h"
@@ -37,6 +39,7 @@
 #include "measure.h"
 #include "mensur.h"
 #include "note.h"
+#include "options.h"
 #include "page.h"
 #include "proport.h"
 #include "rdg.h"
@@ -1309,5 +1312,27 @@ int CmmeInput::ChildAsInt(const pugi::xml_node node, const std::string &child) c
     }
     return VRV_UNSET;
 }
+
+//----------------------------------------------------------------------------
+// Input format registration
+//----------------------------------------------------------------------------
+
+static const InputFormatRegistrar s_cmmeFormat(
+    { CMME, "CMME", { "cmme.xml" }, true, [](Doc *doc) -> Input * {
+         Options *options = doc->GetOptions();
+         if (options->m_durationEquivalence.GetValue() != DURATION_EQ_minima) {
+             LogWarning("CMME input uses 'minima' duration equivalence, changing the option accordingly.");
+             options->m_durationEquivalence.SetValue(DURATION_EQ_minima);
+         }
+         return new CmmeInput(doc);
+     } });
+
+static const InputFormatRegistrar s_cmmeDetector(
+    730, [](const std::string &data, const std::string &head) -> std::optional<FileFormat> {
+        if (data[0] == '<' && std::regex_search(head, std::regex("<(Piece xmlns=\"http://www.cmme.org\")[\\s>]"))) {
+            return CMME;
+        }
+        return std::nullopt;
+    });
 
 } // namespace vrv
