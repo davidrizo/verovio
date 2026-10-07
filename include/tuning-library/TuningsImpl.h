@@ -69,7 +69,7 @@ inline double locale_atof(const char *s)
 {
     double result = 0;
     std::istringstream istr(s);
-    istr.imbue(std::locale("C"));
+    istr.imbue(std::locale::classic()); // std::locale("C") builds a new locale on every call
     istr >> result;
     return result;
 }
