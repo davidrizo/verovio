@@ -799,25 +799,6 @@ void View::DrawDots(DeviceContext *dc, LayerElement *element, Layer *layer, Staf
     dc->EndGraphic(element, this);
 }
 
-void View::DrawDurationElement(DeviceContext *dc, LayerElement *element, Layer *layer, Staff *staff, Measure *measure)
-{
-    assert(dc);
-    assert(element);
-    assert(layer);
-    assert(staff);
-    assert(measure);
-
-    if (dynamic_cast<Chord *>(element)) {
-        this->DrawChord(dc, element, layer, staff, measure);
-    }
-    else if (dynamic_cast<Note *>(element)) {
-        this->DrawNote(dc, element, layer, staff, measure);
-    }
-    else if (dynamic_cast<Rest *>(element)) {
-        this->DrawRest(dc, element, layer, staff, measure);
-    }
-}
-
 void View::DrawFlag(DeviceContext *dc, LayerElement *element, Layer *layer, Staff *staff, Measure *measure)
 {
     assert(dc);
@@ -2448,7 +2429,7 @@ void View::RegisterElementDrawers(LayerElementDrawers &drawers)
     drawers[BARLINE] = &View::DrawBarLine;
     drawers[BEATRPT] = &View::DrawBeatRpt;
     drawers[BTREM] = &View::DrawBTrem;
-    drawers[CHORD] = &View::DrawDurationElement;
+    drawers[CHORD] = &View::DrawChord;
     drawers[CLEF] = &View::DrawClef;
     drawers[CUSTOS] = &View::DrawCustos;
     drawers[DOT] = &View::DrawDot;
@@ -2465,8 +2446,8 @@ void View::RegisterElementDrawers(LayerElementDrawers &drawers)
     drawers[MSPACE] = &View::DrawMSpace;
     drawers[MULTIREST] = &View::DrawMultiRest;
     drawers[MULTIRPT] = &View::DrawMultiRpt;
-    drawers[NOTE] = &View::DrawDurationElement;
-    drawers[REST] = &View::DrawDurationElement;
+    drawers[NOTE] = &View::DrawNote;
+    drawers[REST] = &View::DrawRest;
     drawers[SPACE] = &View::DrawSpace;
     drawers[STEM] = &View::DrawStem;
     drawers[SYL] = &View::DrawSyl;

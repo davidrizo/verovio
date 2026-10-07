@@ -33,6 +33,8 @@ class Comparison {
 
 public:
     virtual bool operator()(const Object *object) = 0;
+    // For class comparisons: true when the comparison does not concern the class of the object (see Filters::Apply)
+    virtual bool IgnoredFor(const Object *object) const { return false; }
     // For classes that do a reverse comparison, return reversed result
     bool Result(bool comparison) { return (m_reverse) ? !comparison : comparison; }
     // Set reverse comparison.
@@ -68,6 +70,8 @@ public:
     bool operator()(const Object *object) override { return Result(this->MatchesType(object)); }
 
     ClassId GetType() { return m_classId; }
+
+    bool IgnoredFor(const Object *object) const override { return (m_classId != object->GetClassId()); }
 
     bool MatchesType(const Object *object) { return (object->Is(m_classId)); }
 
@@ -632,8 +636,7 @@ public:
     {
         auto condition = [object](Comparison *iter) {
             // ignore any class comparison which does not match the object class
-            ClassIdComparison *cmp = dynamic_cast<ClassIdComparison *>(iter);
-            if (cmp) return (cmp->GetType() != object->GetClassId()) ? true : (*iter)(object);
+            if (iter->IgnoredFor(object)) return true;
             return (*iter)(object);
         };
         switch (m_type) {
