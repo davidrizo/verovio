@@ -8,6 +8,7 @@
 #ifndef __VRV_OBJECT_H__
 #define __VRV_OBJECT_H__
 
+#include <atomic>
 #include <cstdlib>
 #include <functional>
 #include <iterator>
@@ -161,6 +162,17 @@ public:
     {
         return std::find(m_interfaces.begin(), m_interfaces.end(), interfaceId) != m_interfaces.end();
     }
+    ///@}
+
+    /**
+     * Returns the part of the object holding the attributes of class T (e.g. AttAccidLog), or NULL.
+     * It is used with an object that has attClassId (see HasAttClass), in place of a dynamic_cast: casting between
+     * sibling base classes is a slow search, and the offset of T inside the object only depends on its C++ class,
+     * which m_classId identifies. The offset is found with a dynamic_cast once per (class, att class) and cached.
+     */
+    ///@{
+    template <class T> T *GetAtt(AttClassId attClassId);
+    template <class T> const T *GetAtt(AttClassId attClassId) const;
     ///@}
 
     /**
@@ -863,6 +875,9 @@ private:
     /**
      * A vector for storing the list of AttClassId (MEI att classes) implemented.
      */
+    /** The cache of the att class offsets used by GetAtt (see object.cpp) */
+    static std::atomic<int32_t> &AttOffsetSlot(ClassId classId, AttClassId attClassId);
+
     std::vector<AttClassId> m_attClasses;
 
     /**
@@ -1081,6 +1096,33 @@ public:
 private:
     ClassId m_classId;
 };
+
+//----------------------------------------------------------------------------
+// Object::GetAtt
+//----------------------------------------------------------------------------
+
+template <class T> const T *Object::GetAtt(AttClassId attClassId) const
+{
+    std::atomic<int32_t> &slot = AttOffsetSlot(m_classId, attClassId);
+    // The slot holds 2 * offset + 1, 0 meaning that the offset is not known yet
+    const int32_t value = slot.load(std::memory_order_relaxed);
+    if (value != 0) {
+        const T *att = reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + (value >> 1));
+        assert(att == dynamic_cast<const T *>(this));
+        return att;
+    }
+    const T *att = dynamic_cast<const T *>(this);
+    if (att) {
+        const std::ptrdiff_t offset = reinterpret_cast<const char *>(att) - reinterpret_cast<const char *>(this);
+        slot.store(static_cast<int32_t>(offset * 2 + 1), std::memory_order_relaxed);
+    }
+    return att;
+}
+
+template <class T> T *Object::GetAtt(AttClassId attClassId)
+{
+    return const_cast<T *>(static_cast<const Object *>(this)->GetAtt<T>(attClassId));
+}
 
 //----------------------------------------------------------------------------
 // ObjectFactory

@@ -238,6 +238,14 @@ void Object::RegisterInterface(std::vector<AttClassId> *attClasses, InterfaceId 
     m_interfaces.push_back(interfaceId);
 }
 
+std::atomic<int32_t> &Object::AttOffsetSlot(ClassId classId, AttClassId attClassId)
+{
+    static std::atomic<int32_t> s_offsets[UNSPECIFIED + 1][ATT_CLASS_max];
+    assert((classId >= 0) && (classId <= UNSPECIFIED));
+    assert((attClassId >= 0) && (attClassId < ATT_CLASS_max));
+    return s_offsets[classId][attClassId];
+}
+
 bool Object::IsMilestoneElement() const
 {
     if (this->IsEditorialElement() || this->Is(ENDING) || this->Is(SECTION)) {

@@ -509,7 +509,7 @@ bool AttModule::Set{moduleNameCap}(Object *element, const std::string &attrType,
 """
 
 SETTERS_GRP_START_CPP = """    if (element->HasAttClass({attId})) {{
-        Att{attGroupNameUpper} *att = dynamic_cast<Att{attGroupNameUpper} *>(element);
+        Att{attGroupNameUpper} *att = element->GetAtt<Att{attGroupNameUpper}>({attId});
         assert(att);
 """
 
@@ -537,7 +537,7 @@ GETTERS_START_CPP = """void AttModule::Get{moduleNameCap}(const Object *element,
 """
 
 GETTERS_GRP_START_CPP = """    if (element->HasAttClass({attId})) {{
-        const Att{attGroupNameUpper} *att = dynamic_cast<const Att{attGroupNameUpper} *>(element);
+        const Att{attGroupNameUpper} *att = element->GetAtt<Att{attGroupNameUpper}>({attId});
         assert(att);
 """
 
@@ -562,9 +562,9 @@ COPYERS_START_CPP = """void AttModule::Copy{moduleNameCap}(const Object *element
 """
 
 COPYERS_GRP_START_CPP = """    if (element->HasAttClass({attId})) {{
-        const Att{attGroupNameUpper} *att = dynamic_cast<const Att{attGroupNameUpper} *>(element);
+        const Att{attGroupNameUpper} *att = element->GetAtt<Att{attGroupNameUpper}>({attId});
         assert(att);
-        Att{attGroupNameUpper} *attTarget = dynamic_cast<Att{attGroupNameUpper} *>(target);
+        Att{attGroupNameUpper} *attTarget = target->GetAtt<Att{attGroupNameUpper}>({attId});
         assert(attTarget);
 """
 
