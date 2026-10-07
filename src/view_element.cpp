@@ -11,6 +11,7 @@
 
 #include <cassert>
 #include <math.h>
+#include <unordered_map>
 
 #include <string>
 
@@ -66,6 +67,8 @@
 
 namespace vrv {
 
+using DrawLayerElementFn = void (View::*)(DeviceContext *, LayerElement *, Layer *, Staff *, Measure *);
+
 void View::DrawLayerElement(DeviceContext *dc, LayerElement *element, Layer *layer, Staff *staff, Measure *measure)
 {
     assert(dc);
@@ -83,140 +86,59 @@ void View::DrawLayerElement(DeviceContext *dc, LayerElement *element, Layer *lay
 
     this->StartOffset(dc, element, staff->m_drawingStaffSize);
 
-    if (element->Is(ACCID)) {
-        this->DrawAccid(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(ARTIC)) {
-        this->DrawArtic(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(BARLINE)) {
-        this->DrawBarLine(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(BEAM)) {
-        this->DrawBeam(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(BEATRPT)) {
-        this->DrawBeatRpt(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(BTREM)) {
-        this->DrawBTrem(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(CHORD)) {
-        this->DrawDurationElement(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(CLEF)) {
-        this->DrawClef(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(CUSTOS)) {
-        this->DrawCustos(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(DIVLINE)) {
-        this->DrawDivLine(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(DOT)) {
-        this->DrawDot(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(DOTS)) {
-        this->DrawDots(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(EPISEMA)) {
-        this->DrawEpisema(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(FTREM)) {
-        this->DrawFTrem(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(FLAG)) {
-        this->DrawFlag(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(GENERIC_ELEMENT)) {
-        this->DrawGenericLayerElement(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(GRACEGRP)) {
-        this->DrawGraceGrp(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(HALFMRPT)) {
-        this->DrawHalfmRpt(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(KEYSIG)) {
-        this->DrawKeySig(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(LIGATURE)) {
-        this->DrawLigature(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(LIQUESCENT)) {
-        this->DrawLiquescent(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MENSUR)) {
-        this->DrawMensur(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(METERSIG)) {
-        this->DrawMeterSig(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MREST)) {
-        this->DrawMRest(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MRPT)) {
-        this->DrawMRpt(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MRPT2)) {
-        this->DrawMRpt2(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MSPACE)) {
-        this->DrawMSpace(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MULTIREST)) {
-        this->DrawMultiRest(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(MULTIRPT)) {
-        this->DrawMultiRpt(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(NC)) {
-        this->DrawNc(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(NOTE)) {
-        this->DrawDurationElement(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(NEUME)) {
-        this->DrawNeume(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(ORISCUS)) {
-        this->DrawOriscus(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(PLICA)) {
-        this->DrawPlica(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(PROPORT)) {
-        this->DrawProport(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(QUILISMA)) {
-        this->DrawQuilisma(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(STROPHICUS)) {
-        this->DrawStrophicus(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(REST)) {
-        this->DrawDurationElement(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(SPACE)) {
-        this->DrawSpace(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(STEM)) {
-        this->DrawStem(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(SYL)) {
-        this->DrawSyl(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(SYLLABLE)) {
-        this->DrawSyllable(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(TABDURSYM)) {
-        this->DrawTabDurSym(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(TABGRP)) {
-        this->DrawTabGrp(dc, element, layer, staff, measure);
-    }
-    else if (element->Is(TUPLET)) {
-        this->DrawTuplet(dc, element, layer, staff, measure);
+    // Drawing function by class: a table lookup instead of a chain of Is() tests
+    static const std::unordered_map<ClassId, DrawLayerElementFn> drawers = {
+        { ACCID, &View::DrawAccid },
+        { ARTIC, &View::DrawArtic },
+        { BARLINE, &View::DrawBarLine },
+        { BEAM, &View::DrawBeam },
+        { BEATRPT, &View::DrawBeatRpt },
+        { BTREM, &View::DrawBTrem },
+        { CHORD, &View::DrawDurationElement },
+        { CLEF, &View::DrawClef },
+        { CUSTOS, &View::DrawCustos },
+        { DIVLINE, &View::DrawDivLine },
+        { DOT, &View::DrawDot },
+        { DOTS, &View::DrawDots },
+        { EPISEMA, &View::DrawEpisema },
+        { FTREM, &View::DrawFTrem },
+        { FLAG, &View::DrawFlag },
+        { GENERIC_ELEMENT, &View::DrawGenericLayerElement },
+        { GRACEGRP, &View::DrawGraceGrp },
+        { HALFMRPT, &View::DrawHalfmRpt },
+        { KEYSIG, &View::DrawKeySig },
+        { LIGATURE, &View::DrawLigature },
+        { LIQUESCENT, &View::DrawLiquescent },
+        { MENSUR, &View::DrawMensur },
+        { METERSIG, &View::DrawMeterSig },
+        { MREST, &View::DrawMRest },
+        { MRPT, &View::DrawMRpt },
+        { MRPT2, &View::DrawMRpt2 },
+        { MSPACE, &View::DrawMSpace },
+        { MULTIREST, &View::DrawMultiRest },
+        { MULTIRPT, &View::DrawMultiRpt },
+        { NC, &View::DrawNc },
+        { NOTE, &View::DrawDurationElement },
+        { NEUME, &View::DrawNeume },
+        { ORISCUS, &View::DrawOriscus },
+        { PLICA, &View::DrawPlica },
+        { PROPORT, &View::DrawProport },
+        { QUILISMA, &View::DrawQuilisma },
+        { STROPHICUS, &View::DrawStrophicus },
+        { REST, &View::DrawDurationElement },
+        { SPACE, &View::DrawSpace },
+        { STEM, &View::DrawStem },
+        { SYL, &View::DrawSyl },
+        { SYLLABLE, &View::DrawSyllable },
+        { TABDURSYM, &View::DrawTabDurSym },
+        { TABGRP, &View::DrawTabGrp },
+        { TUPLET, &View::DrawTuplet },
+        { VOLTA, &View::DrawVolta },
+    };
+
+    const auto drawer = drawers.find(element->GetClassId());
+    if (drawer != drawers.end()) {
+        (this->*(drawer->second))(dc, element, layer, staff, measure);
     }
     else if (element->Is(TUPLET_BRACKET)) {
         TupletBracket *tupletBracket = vrv_cast<TupletBracket *>(element);
@@ -235,9 +157,6 @@ void View::DrawLayerElement(DeviceContext *dc, LayerElement *element, Layer *lay
         dc->StartGraphic(element, (showHidden ? CSS_SHOW_HIDDEN : ""), element->GetID());
         dc->EndGraphic(element, this);
         layer->AddToDrawingList(element);
-    }
-    else if (element->Is(VOLTA)) {
-        this->DrawVolta(dc, element, layer, staff, measure);
     }
     else if (element->IsLyricElement()) {
         this->DrawLyricElement(dc, element, layer, staff, measure);
