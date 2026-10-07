@@ -13,6 +13,8 @@
 #include <cassert>
 #include <iostream>
 #include <regex>
+#include <string_view>
+#include <unordered_map>
 
 //----------------------------------------------------------------------------
 
@@ -175,6 +177,16 @@
 #define MEI_CURRENT_BASIC_VERSION meiVersion_MEIVERSION_6_0_devplusbasic
 
 namespace vrv {
+
+using MeiReaderFn = bool (MEIInput::*)(Object *, pugi::xml_node);
+using MeiReaderTable = std::unordered_map<std::string_view, MeiReaderFn>;
+
+/** Returns the reader registered for an element name, or NULL */
+static MeiReaderFn FindMeiReader(const MeiReaderTable &table, std::string_view name)
+{
+    const auto it = table.find(name);
+    return (it == table.end()) ? NULL : it->second;
+}
 
 const std::vector<std::string> MEIInput::s_editorialElementNames = { "abbr", "add", "app", "annot", "choice", "corr",
     "damage", "del", "expan", "orig", "ref", "reg", "restore", "sic", "subst", "supplied", "unclear" };
@@ -4870,6 +4882,14 @@ bool MEIInput::ReadSection(Object *parent, pugi::xml_node section)
 
 bool MEIInput::ReadSectionChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "div", &MEIInput::ReadDiv },
+        { "expansion", &MEIInput::ReadExpansion },
+        { "scoreDef", &MEIInput::ReadScoreDef },
+        { "section", &MEIInput::ReadSection },
+        { "pb", &MEIInput::ReadPb },
+        { "sb", &MEIInput::ReadSb },
+    };
     assert(dynamic_cast<Section *>(parent) || dynamic_cast<Ending *>(parent) || dynamic_cast<Expansion *>(parent)
         || dynamic_cast<EditorialElement *>(parent));
 
@@ -4884,29 +4904,13 @@ bool MEIInput::ReadSectionChildren(Object *parent, pugi::xml_node parentNode)
             success = this->ReadEditorialElement(parent, current, EDITORIAL_TOPLEVEL);
         }
         // content
-        else if (std::string(current.name()) == "div") {
-            success = this->ReadDiv(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, std::string(current.name()))) {
+            success = (this->*reader)(parent, current);
         }
         else if (std::string(current.name()) == "ending") {
             // we should not have endings with unmeasured music ... (?)
             assert(!unmeasured);
             success = this->ReadEnding(parent, current);
-        }
-        else if (std::string(current.name()) == "expansion") {
-            success = this->ReadExpansion(parent, current);
-        }
-        else if (std::string(current.name()) == "scoreDef") {
-            success = this->ReadScoreDef(parent, current);
-        }
-        else if (std::string(current.name()) == "section") {
-            success = this->ReadSection(parent, current);
-        }
-        // pb and sb
-        else if (std::string(current.name()) == "pb") {
-            success = this->ReadPb(parent, current);
-        }
-        else if (std::string(current.name()) == "sb") {
-            success = this->ReadSb(parent, current);
         }
         // unmeasured music
         else if (std::string(current.name()) == "staff") {
@@ -5062,6 +5066,12 @@ bool MEIInput::ReadSystem(Object *parent, pugi::xml_node system)
 
 bool MEIInput::ReadSystemChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "section", &MEIInput::ReadSection },
+        { "secb", &MEIInput::ReadSection },
+        { "milestoneEnd", &MEIInput::ReadSystemMilestoneEnd },
+        { "sb", &MEIInput::ReadSb },
+    };
     assert(dynamic_cast<System *>(parent) || dynamic_cast<EditorialElement *>(parent));
 
     bool success = true;
@@ -5075,15 +5085,8 @@ bool MEIInput::ReadSystemChildren(Object *parent, pugi::xml_node parentNode)
             success = this->ReadEditorialElement(parent, current, EDITORIAL_TOPLEVEL);
         }
         // section
-        else if (std::string(current.name()) == "section") {
-            success = this->ReadSection(parent, current);
-        }
-        // section in page-based MEI
-        else if (std::string(current.name()) == "secb") {
-            success = this->ReadSection(parent, current);
-        }
-        else if (std::string(current.name()) == "milestoneEnd") {
-            success = this->ReadSystemMilestoneEnd(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, std::string(current.name()))) {
+            success = (this->*reader)(parent, current);
         }
         // content
         else if (std::string(current.name()) == "scoreDef") {
@@ -5119,9 +5122,6 @@ bool MEIInput::ReadSystemChildren(Object *parent, pugi::xml_node parentNode)
         else if (m_deserializing) {
             if (std::string(current.name()) == "pb") {
                 success = this->ReadPb(parent, current);
-            }
-            else if (std::string(current.name()) == "sb") {
-                success = this->ReadSb(parent, current);
             }
         }
         // xml comment
@@ -5298,6 +5298,16 @@ bool MEIInput::ReadScoreDef(Object *parent, pugi::xml_node scoreDef)
 
 bool MEIInput::ReadScoreDefChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "clef", &MEIInput::ReadClef },
+        { "grpSym", &MEIInput::ReadGrpSym },
+        { "keySig", &MEIInput::ReadKeySig },
+        { "mensur", &MEIInput::ReadMensur },
+        { "meterSig", &MEIInput::ReadMeterSig },
+        { "meterSigGrp", &MEIInput::ReadMeterSigGrp },
+        { "symbolTable", &MEIInput::ReadSymbolTable },
+        { "staffGrp", &MEIInput::ReadStaffGrp },
+    };
     assert(dynamic_cast<ScoreDef *>(parent) || dynamic_cast<EditorialElement *>(parent));
 
     bool success = true;
@@ -5310,23 +5320,8 @@ bool MEIInput::ReadScoreDefChildren(Object *parent, pugi::xml_node parentNode)
             success = this->ReadEditorialElement(parent, current, EDITORIAL_SCOREDEF);
         }
         // clef, keySig, etc.
-        else if (std::string(current.name()) == "clef") {
-            success = this->ReadClef(parent, current);
-        }
-        else if (std::string(current.name()) == "grpSym") {
-            success = this->ReadGrpSym(parent, current);
-        }
-        else if (std::string(current.name()) == "keySig") {
-            success = this->ReadKeySig(parent, current);
-        }
-        else if (std::string(current.name()) == "mensur") {
-            success = this->ReadMensur(parent, current);
-        }
-        else if (std::string(current.name()) == "meterSig") {
-            success = this->ReadMeterSig(parent, current);
-        }
-        else if (std::string(current.name()) == "meterSigGrp") {
-            success = this->ReadMeterSigGrp(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, std::string(current.name()))) {
+            success = (this->*reader)(parent, current);
         }
         // headers and footers
         else if (std::string(current.name()) == "pgFoot") {
@@ -5352,14 +5347,6 @@ bool MEIInput::ReadScoreDefChildren(Object *parent, pugi::xml_node parentNode)
                 UpgradePgHeadFootTo_5_0(current);
             }
             success = this->ReadPgHead(parent, current);
-        }
-        // symbolTable
-        else if (std::string(current.name()) == "symbolTable") {
-            success = this->ReadSymbolTable(parent, current);
-        }
-        // content
-        else if (std::string(current.name()) == "staffGrp") {
-            success = this->ReadStaffGrp(parent, current);
         }
         // xml comment
         else if (std::string(current.name()) == "") {
@@ -5405,6 +5392,12 @@ bool MEIInput::ReadStaffGrp(Object *parent, pugi::xml_node staffGrp)
 
 bool MEIInput::ReadStaffGrpChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "grpSym", &MEIInput::ReadGrpSym },
+        { "instrDef", &MEIInput::ReadInstrDef },
+        { "label", &MEIInput::ReadLabel },
+        { "labelAbbr", &MEIInput::ReadLabelAbbr },
+    };
     assert(dynamic_cast<StaffGrp *>(parent) || dynamic_cast<EditorialElement *>(parent));
 
     bool success = true;
@@ -5418,17 +5411,8 @@ bool MEIInput::ReadStaffGrpChildren(Object *parent, pugi::xml_node parentNode)
             success = this->ReadEditorialElement(parent, current, EDITORIAL_STAFFGRP);
         }
         // content
-        else if (std::string(current.name()) == "grpSym") {
-            success = this->ReadGrpSym(parent, current);
-        }
-        else if (std::string(current.name()) == "instrDef") {
-            success = this->ReadInstrDef(parent, current);
-        }
-        else if (std::string(current.name()) == "label") {
-            success = this->ReadLabel(parent, current);
-        }
-        else if (std::string(current.name()) == "labelAbbr") {
-            success = this->ReadLabelAbbr(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, std::string(current.name()))) {
+            success = (this->*reader)(parent, current);
         }
         else if (std::string(current.name()) == "staffGrp") {
             success = this->ReadStaffGrp(parent, current);
@@ -5611,6 +5595,18 @@ bool MEIInput::ReadStaffDef(Object *parent, pugi::xml_node staffDef)
 
 bool MEIInput::ReadStaffDefChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "clef", &MEIInput::ReadClef },
+        { "keySig", &MEIInput::ReadKeySig },
+        { "mensur", &MEIInput::ReadMensur },
+        { "meterSig", &MEIInput::ReadMeterSig },
+        { "meterSigGrp", &MEIInput::ReadMeterSigGrp },
+        { "instrDef", &MEIInput::ReadInstrDef },
+        { "label", &MEIInput::ReadLabel },
+        { "labelAbbr", &MEIInput::ReadLabelAbbr },
+        { "layerDef", &MEIInput::ReadLayerDef },
+        { "tuning", &MEIInput::ReadTuning },
+    };
     assert(dynamic_cast<StaffDef *>(parent) || dynamic_cast<EditorialElement *>(parent));
 
     bool success = true;
@@ -5618,36 +5614,8 @@ bool MEIInput::ReadStaffDefChildren(Object *parent, pugi::xml_node parentNode)
     for (current = parentNode.first_child(); current; current = current.next_sibling()) {
         if (!success) break;
         // clef, keySig, etc.
-        else if (std::string(current.name()) == "clef") {
-            success = this->ReadClef(parent, current);
-        }
-        else if (std::string(current.name()) == "keySig") {
-            success = this->ReadKeySig(parent, current);
-        }
-        else if (std::string(current.name()) == "mensur") {
-            success = this->ReadMensur(parent, current);
-        }
-        else if (std::string(current.name()) == "meterSig") {
-            success = this->ReadMeterSig(parent, current);
-        }
-        else if (std::string(current.name()) == "meterSigGrp") {
-            success = this->ReadMeterSigGrp(parent, current);
-        }
-        // content
-        else if (std::string(current.name()) == "instrDef") {
-            success = this->ReadInstrDef(parent, current);
-        }
-        else if (std::string(current.name()) == "label") {
-            success = this->ReadLabel(parent, current);
-        }
-        else if (std::string(current.name()) == "labelAbbr") {
-            success = this->ReadLabelAbbr(parent, current);
-        }
-        else if (std::string(current.name()) == "layerDef") {
-            success = this->ReadLayerDef(parent, current);
-        }
-        else if (std::string(current.name()) == "tuning") {
-            success = this->ReadTuning(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, std::string(current.name()))) {
+            success = (this->*reader)(parent, current);
         }
         // xml comment
         else if (std::string(current.name()) == "") {
@@ -5797,6 +5765,11 @@ bool MEIInput::ReadLayerDef(Object *parent, pugi::xml_node layerDef)
 
 bool MEIInput::ReadLayerDefChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "instrDef", &MEIInput::ReadInstrDef },
+        { "label", &MEIInput::ReadLabel },
+        { "labelAbbr", &MEIInput::ReadLabelAbbr },
+    };
     assert(dynamic_cast<LayerDef *>(parent));
 
     bool success = true;
@@ -5804,14 +5777,8 @@ bool MEIInput::ReadLayerDefChildren(Object *parent, pugi::xml_node parentNode)
         const std::string currentName = current.name();
         if (!success)
             break;
-        else if (currentName == "instrDef") {
-            success = this->ReadInstrDef(parent, current);
-        }
-        else if (currentName == "label") {
-            success = this->ReadLabel(parent, current);
-        }
-        else if (currentName == "labelAbbr") {
-            success = this->ReadLabelAbbr(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, currentName)) {
+            success = (this->*reader)(parent, current);
         }
         // xml comment
         else if (currentName == "") {
@@ -5859,6 +5826,38 @@ bool MEIInput::ReadMeasure(Object *parent, pugi::xml_node measure)
 
 bool MEIInput::ReadMeasureChildren(Object *parent, pugi::xml_node parentNode)
 {
+    static const MeiReaderTable readers = {
+        { "anchoredText", &MEIInput::ReadAnchoredText },
+        { "arpeg", &MEIInput::ReadArpeg },
+        { "beamSpan", &MEIInput::ReadBeamSpan },
+        { "bracketSpan", &MEIInput::ReadBracketSpan },
+        { "breath", &MEIInput::ReadBreath },
+        { "caesura", &MEIInput::ReadCaesura },
+        { "cpMark", &MEIInput::ReadCpMark },
+        { "dynam", &MEIInput::ReadDynam },
+        { "fermata", &MEIInput::ReadFermata },
+        { "fing", &MEIInput::ReadFing },
+        { "gliss", &MEIInput::ReadGliss },
+        { "hairpin", &MEIInput::ReadHairpin },
+        { "harm", &MEIInput::ReadHarm },
+        { "lv", &MEIInput::ReadLv },
+        { "mNum", &MEIInput::ReadMNum },
+        { "mordent", &MEIInput::ReadMordent },
+        { "octave", &MEIInput::ReadOctave },
+        { "ornam", &MEIInput::ReadOrnam },
+        { "ossia", &MEIInput::ReadOssia },
+        { "pedal", &MEIInput::ReadPedal },
+        { "phrase", &MEIInput::ReadPhrase },
+        { "pitchInflection", &MEIInput::ReadPitchInflection },
+        { "reh", &MEIInput::ReadReh },
+        { "repeatMark", &MEIInput::ReadRepeatMark },
+        { "slur", &MEIInput::ReadSlur },
+        { "staff", &MEIInput::ReadStaff },
+        { "tempo", &MEIInput::ReadTempo },
+        { "tie", &MEIInput::ReadTie },
+        { "trill", &MEIInput::ReadTrill },
+        { "turn", &MEIInput::ReadTurn },
+    };
     assert(dynamic_cast<Measure *>(parent) || dynamic_cast<EditorialElement *>(parent));
 
     bool success = true;
@@ -5877,101 +5876,15 @@ bool MEIInput::ReadMeasureChildren(Object *parent, pugi::xml_node parentNode)
             }
         }
         // content
-        else if (currentName == "anchoredText") {
-            success = this->ReadAnchoredText(parent, current);
+        else if (MeiReaderFn reader = FindMeiReader(readers, currentName)) {
+            success = (this->*reader)(parent, current);
         }
-        else if (currentName == "arpeg") {
-            success = this->ReadArpeg(parent, current);
-        }
-        else if (currentName == "beamSpan") {
-            success = this->ReadBeamSpan(parent, current);
-        }
-        else if (currentName == "bracketSpan") {
-            success = this->ReadBracketSpan(parent, current);
-        }
-        else if (currentName == "breath") {
-            success = this->ReadBreath(parent, current);
-        }
-        else if (currentName == "caesura") {
-            success = this->ReadCaesura(parent, current);
-        }
-        else if (currentName == "cpMark") {
-            success = this->ReadCpMark(parent, current);
-        }
+        // ReadDir takes an extra (defaulted) argument, so it is not in the table
         else if (currentName == "dir") {
             success = this->ReadDir(parent, current);
         }
-        else if (currentName == "dynam") {
-            success = this->ReadDynam(parent, current);
-        }
-        else if (currentName == "fermata") {
-            success = this->ReadFermata(parent, current);
-        }
-        else if (currentName == "fing") {
-            success = this->ReadFing(parent, current);
-        }
-        else if (currentName == "gliss") {
-            success = this->ReadGliss(parent, current);
-        }
-        else if (currentName == "hairpin") {
-            success = this->ReadHairpin(parent, current);
-        }
-        else if (currentName == "harm") {
-            success = this->ReadHarm(parent, current);
-        }
-        else if (currentName == "lv") {
-            success = this->ReadLv(parent, current);
-        }
-        else if (currentName == "mNum") {
-            success = this->ReadMNum(parent, current);
-        }
-        else if (currentName == "mordent") {
-            success = this->ReadMordent(parent, current);
-        }
-        else if (currentName == "octave") {
-            success = this->ReadOctave(parent, current);
-        }
-        else if (currentName == "ornam") {
-            success = this->ReadOrnam(parent, current);
-        }
-        else if (currentName == "ossia") {
-            success = this->ReadOssia(parent, current);
-        }
-        else if (currentName == "pedal") {
-            success = this->ReadPedal(parent, current);
-        }
-        else if (currentName == "phrase") {
-            success = this->ReadPhrase(parent, current);
-        }
-        else if (currentName == "pitchInflection") {
-            success = this->ReadPitchInflection(parent, current);
-        }
-        else if (currentName == "reh") {
-            success = this->ReadReh(parent, current);
-        }
-        else if (currentName == "repeatMark") {
-            success = this->ReadRepeatMark(parent, current);
-        }
-        else if (currentName == "slur") {
-            success = this->ReadSlur(parent, current);
-        }
-        else if (currentName == "staff") {
-            success = this->ReadStaff(parent, current);
-        }
         else if (currentName == "stageDir") {
             success = this->ReadDir(parent, current, true);
-        }
-        else if (currentName == "tempo") {
-            success = this->ReadTempo(parent, current);
-        }
-        else if (currentName == "tie") {
-            success = this->ReadTie(parent, current);
-        }
-        else if (currentName == "trill") {
-            success = this->ReadTrill(parent, current);
-        }
-        else if (currentName == "turn") {
-            success = this->ReadTurn(parent, current);
         }
         else if (currentName == "tupletSpan") {
             if (!ReadTupletSpanAsTuplet(dynamic_cast<Measure *>(parent), current)) {
@@ -6694,6 +6607,60 @@ bool MEIInput::ReadLayer(Object *parent, pugi::xml_node layer)
 
 bool MEIInput::ReadLayerChildren(Object *parent, pugi::xml_node parentNode, Object *filter)
 {
+    static const MeiReaderTable readers = {
+        { "accid", &MEIInput::ReadAccid },
+        { "artic", &MEIInput::ReadArtic },
+        { "barLine", &MEIInput::ReadBarLine },
+        { "beam", &MEIInput::ReadBeam },
+        { "beatRpt", &MEIInput::ReadBeatRpt },
+        { "bTrem", &MEIInput::ReadBTrem },
+        { "chord", &MEIInput::ReadChord },
+        { "clef", &MEIInput::ReadClef },
+        { "custos", &MEIInput::ReadCustos },
+        { "divLine", &MEIInput::ReadDivLine },
+        { "dot", &MEIInput::ReadDot },
+        { "episema", &MEIInput::ReadEpisema },
+        { "fTrem", &MEIInput::ReadFTrem },
+        { "gap", &MEIInput::ReadGenericLayerElement },
+        { "graceGrp", &MEIInput::ReadGraceGrp },
+        { "halfmRpt", &MEIInput::ReadHalfmRpt },
+        { "keyAccid", &MEIInput::ReadKeyAccid },
+        { "keySig", &MEIInput::ReadKeySig },
+        { "label", &MEIInput::ReadLabel },
+        { "labelAbbr", &MEIInput::ReadLabelAbbr },
+        { "ligature", &MEIInput::ReadLigature },
+        { "liquescent", &MEIInput::ReadLiquescent },
+        { "mensur", &MEIInput::ReadMensur },
+        { "meterSig", &MEIInput::ReadMeterSig },
+        { "meterSigGrp", &MEIInput::ReadMeterSigGrp },
+        { "nc", &MEIInput::ReadNc },
+        { "neume", &MEIInput::ReadNeume },
+        { "note", &MEIInput::ReadNote },
+        { "mRest", &MEIInput::ReadMRest },
+        { "mRpt", &MEIInput::ReadMRpt },
+        { "mRpt2", &MEIInput::ReadMRpt2 },
+        { "mSpace", &MEIInput::ReadMSpace },
+        { "multiRest", &MEIInput::ReadMultiRest },
+        { "multiRpt", &MEIInput::ReadMultiRpt },
+        { "oriscus", &MEIInput::ReadOriscus },
+        { "pb", &MEIInput::ReadGenericLayerElement },
+        { "plica", &MEIInput::ReadPlica },
+        { "proport", &MEIInput::ReadProport },
+        { "quilisma", &MEIInput::ReadQuilisma },
+        { "rest", &MEIInput::ReadRest },
+        { "sb", &MEIInput::ReadGenericLayerElement },
+        { "space", &MEIInput::ReadSpace },
+        { "stem", &MEIInput::ReadStem },
+        { "strophicus", &MEIInput::ReadStrophicus },
+        { "syl", &MEIInput::ReadSyl },
+        { "syllable", &MEIInput::ReadSyllable },
+        { "tabDurSym", &MEIInput::ReadTabDurSym },
+        { "tabGrp", &MEIInput::ReadTabGrp },
+        { "tuplet", &MEIInput::ReadTuplet },
+        { "volta", &MEIInput::ReadVolta },
+        { "refrain", &MEIInput::ReadRefrain },
+        { "verse", &MEIInput::ReadVerse },
+    };
     bool success = true;
     pugi::xml_node xmlElement;
     std::string elementName;
@@ -6713,161 +6680,8 @@ bool MEIInput::ReadLayerChildren(Object *parent, pugi::xml_node parentNode, Obje
             success = this->ReadEditorialElement(parent, xmlElement, EDITORIAL_LAYER, filter);
         }
         // content
-        else if (elementName == "accid") {
-            success = this->ReadAccid(parent, xmlElement);
-        }
-        else if (elementName == "artic") {
-            success = this->ReadArtic(parent, xmlElement);
-        }
-        else if (elementName == "barLine") {
-            success = this->ReadBarLine(parent, xmlElement);
-        }
-        else if (elementName == "beam") {
-            success = this->ReadBeam(parent, xmlElement);
-        }
-        else if (elementName == "beatRpt") {
-            success = this->ReadBeatRpt(parent, xmlElement);
-        }
-        else if (elementName == "bTrem") {
-            success = this->ReadBTrem(parent, xmlElement);
-        }
-        else if (elementName == "chord") {
-            success = this->ReadChord(parent, xmlElement);
-        }
-        else if (elementName == "clef") {
-            success = this->ReadClef(parent, xmlElement);
-        }
-        else if (elementName == "custos") {
-            success = this->ReadCustos(parent, xmlElement);
-        }
-        else if (elementName == "divLine") {
-            success = this->ReadDivLine(parent, xmlElement);
-        }
-        else if (elementName == "dot") {
-            success = this->ReadDot(parent, xmlElement);
-        }
-        else if (elementName == "episema") {
-            success = this->ReadEpisema(parent, xmlElement);
-        }
-        else if (elementName == "fTrem") {
-            success = this->ReadFTrem(parent, xmlElement);
-        }
-        else if (elementName == "gap") {
-            success = this->ReadGenericLayerElement(parent, xmlElement);
-        }
-        else if (elementName == "graceGrp") {
-            success = this->ReadGraceGrp(parent, xmlElement);
-        }
-        else if (elementName == "halfmRpt") {
-            success = this->ReadHalfmRpt(parent, xmlElement);
-        }
-        else if (elementName == "keyAccid") {
-            success = this->ReadKeyAccid(parent, xmlElement);
-        }
-        else if (elementName == "keySig") {
-            success = this->ReadKeySig(parent, xmlElement);
-        }
-        else if (elementName == "label") {
-            success = this->ReadLabel(parent, xmlElement);
-        }
-        else if (elementName == "labelAbbr") {
-            success = this->ReadLabelAbbr(parent, xmlElement);
-        }
-        else if (elementName == "ligature") {
-            success = this->ReadLigature(parent, xmlElement);
-        }
-        else if (elementName == "liquescent") {
-            success = this->ReadLiquescent(parent, xmlElement);
-        }
-        else if (elementName == "mensur") {
-            success = this->ReadMensur(parent, xmlElement);
-        }
-        else if (elementName == "meterSig") {
-            success = this->ReadMeterSig(parent, xmlElement);
-        }
-        else if (elementName == "meterSigGrp") {
-            success = this->ReadMeterSigGrp(parent, xmlElement);
-        }
-        else if (elementName == "nc") {
-            success = this->ReadNc(parent, xmlElement);
-        }
-        else if (elementName == "neume") {
-            success = this->ReadNeume(parent, xmlElement);
-        }
-        else if (elementName == "note") {
-            success = this->ReadNote(parent, xmlElement);
-        }
-        else if (elementName == "mRest") {
-            success = this->ReadMRest(parent, xmlElement);
-        }
-        else if (elementName == "mRpt") {
-            success = this->ReadMRpt(parent, xmlElement);
-        }
-        else if (elementName == "mRpt2") {
-            success = this->ReadMRpt2(parent, xmlElement);
-        }
-        else if (elementName == "mSpace") {
-            success = this->ReadMSpace(parent, xmlElement);
-        }
-        else if (elementName == "multiRest") {
-            success = this->ReadMultiRest(parent, xmlElement);
-        }
-        else if (elementName == "multiRpt") {
-            success = this->ReadMultiRpt(parent, xmlElement);
-        }
-        else if (elementName == "oriscus") {
-            success = this->ReadOriscus(parent, xmlElement);
-        }
-        else if (elementName == "pb") {
-            success = this->ReadGenericLayerElement(parent, xmlElement);
-        }
-        else if (elementName == "plica") {
-            success = this->ReadPlica(parent, xmlElement);
-        }
-        else if (elementName == "proport") {
-            success = this->ReadProport(parent, xmlElement);
-        }
-        else if (elementName == "quilisma") {
-            success = this->ReadQuilisma(parent, xmlElement);
-        }
-        else if (elementName == "rest") {
-            success = this->ReadRest(parent, xmlElement);
-        }
-        else if (elementName == "sb") {
-            success = this->ReadGenericLayerElement(parent, xmlElement);
-        }
-        else if (elementName == "space") {
-            success = this->ReadSpace(parent, xmlElement);
-        }
-        else if (elementName == "stem") {
-            success = this->ReadStem(parent, xmlElement);
-        }
-        else if (elementName == "strophicus") {
-            success = this->ReadStrophicus(parent, xmlElement);
-        }
-        else if (elementName == "syl") {
-            success = this->ReadSyl(parent, xmlElement);
-        }
-        else if (elementName == "syllable") {
-            success = this->ReadSyllable(parent, xmlElement);
-        }
-        else if (elementName == "tabDurSym") {
-            success = this->ReadTabDurSym(parent, xmlElement);
-        }
-        else if (elementName == "tabGrp") {
-            success = this->ReadTabGrp(parent, xmlElement);
-        }
-        else if (elementName == "tuplet") {
-            success = this->ReadTuplet(parent, xmlElement);
-        }
-        else if (elementName == "volta") {
-            success = this->ReadVolta(parent, xmlElement);
-        }
-        else if (elementName == "refrain") {
-            success = this->ReadRefrain(parent, xmlElement);
-        }
-        else if (elementName == "verse") {
-            success = this->ReadVerse(parent, xmlElement);
+        else if (MeiReaderFn reader = FindMeiReader(readers, elementName)) {
+            success = (this->*reader)(parent, xmlElement);
         }
         // xml comment
         else if (elementName == "") {
@@ -7767,6 +7581,15 @@ void MEIInput::ReadLyricElement(pugi::xml_node element, LyricElement *lyricEleme
 
 bool MEIInput::ReadTextChildren(Object *parent, pugi::xml_node parentNode, Object *filter)
 {
+    static const MeiReaderTable readers = {
+        { "fig", &MEIInput::ReadFig },
+        { "lb", &MEIInput::ReadLb },
+        { "num", &MEIInput::ReadNum },
+        { "rend", &MEIInput::ReadRend },
+        { "svg", &MEIInput::ReadSvg },
+        { "symbol", &MEIInput::ReadSymbol },
+        { "fb", &MEIInput::ReadFb },
+    };
     bool success = true;
     pugi::xml_node xmlElement;
     std::string elementName;
@@ -7787,32 +7610,13 @@ bool MEIInput::ReadTextChildren(Object *parent, pugi::xml_node parentNode, Objec
             success = this->ReadEditorialElement(parent, xmlElement, EDITORIAL_TEXT, filter);
         }
         // content
-        else if (elementName == "fig") {
-            success = this->ReadFig(parent, xmlElement);
-        }
-        else if (elementName == "lb") {
-            success = this->ReadLb(parent, xmlElement);
-        }
-        else if (elementName == "num") {
-            success = this->ReadNum(parent, xmlElement);
-        }
-        else if (elementName == "rend") {
-            success = this->ReadRend(parent, xmlElement);
-        }
-        else if (elementName == "svg") {
-            success = this->ReadSvg(parent, xmlElement);
-        }
-        else if (elementName == "symbol") {
-            success = this->ReadSymbol(parent, xmlElement);
+        else if (MeiReaderFn reader = FindMeiReader(readers, elementName)) {
+            success = (this->*reader)(parent, xmlElement);
         }
         else if (xmlElement.text()) {
             bool trimLeft = (i == 0);
             bool trimRight = (!xmlElement.next_sibling());
             success = this->ReadText(parent, xmlElement, trimLeft, trimRight);
-        }
-        // figured bass
-        else if (elementName == "fb") {
-            success = this->ReadFb(parent, xmlElement);
         }
         // xml comment
         else if (elementName == "") {
@@ -7829,6 +7633,11 @@ bool MEIInput::ReadTextChildren(Object *parent, pugi::xml_node parentNode, Objec
 
 bool MEIInput::ReadSymbolDefChildren(Object *parent, pugi::xml_node parentNode, Object *filter)
 {
+    static const MeiReaderTable readers = {
+        { "graphic", &MEIInput::ReadGraphic },
+        { "svg", &MEIInput::ReadSvg },
+        { "symbol", &MEIInput::ReadSymbol },
+    };
     bool success = true;
     pugi::xml_node xmlElement;
     std::string elementName;
@@ -7844,14 +7653,8 @@ bool MEIInput::ReadSymbolDefChildren(Object *parent, pugi::xml_node parentNode, 
             continue;
         }
         // content
-        else if (elementName == "graphic") {
-            success = this->ReadGraphic(parent, xmlElement);
-        }
-        else if (elementName == "svg") {
-            success = this->ReadSvg(parent, xmlElement);
-        }
-        else if (elementName == "symbol") {
-            success = this->ReadSymbol(parent, xmlElement);
+        else if (MeiReaderFn reader = FindMeiReader(readers, elementName)) {
+            success = (this->*reader)(parent, xmlElement);
         }
         // xml comment
         else if (elementName == "") {
