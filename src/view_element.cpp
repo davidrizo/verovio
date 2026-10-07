@@ -67,7 +67,20 @@
 
 namespace vrv {
 
-using DrawLayerElementFn = void (View::*)(DeviceContext *, LayerElement *, Layer *, Staff *, Measure *);
+const View::LayerElementDrawers &View::GetLayerElementDrawers()
+{
+    static const LayerElementDrawers drawers = []() {
+        LayerElementDrawers drawers;
+        RegisterBeamDrawers(drawers);
+        RegisterElementDrawers(drawers);
+        RegisterMensuralDrawers(drawers);
+        RegisterNeumeDrawers(drawers);
+        RegisterTabDrawers(drawers);
+        RegisterTupletDrawers(drawers);
+        return drawers;
+    }();
+    return drawers;
+}
 
 void View::DrawLayerElement(DeviceContext *dc, LayerElement *element, Layer *layer, Staff *staff, Measure *measure)
 {
@@ -87,54 +100,7 @@ void View::DrawLayerElement(DeviceContext *dc, LayerElement *element, Layer *lay
     this->StartOffset(dc, element, staff->m_drawingStaffSize);
 
     // Drawing function by class: a table lookup instead of a chain of Is() tests
-    static const std::unordered_map<ClassId, DrawLayerElementFn> drawers = {
-        { ACCID, &View::DrawAccid },
-        { ARTIC, &View::DrawArtic },
-        { BARLINE, &View::DrawBarLine },
-        { BEAM, &View::DrawBeam },
-        { BEATRPT, &View::DrawBeatRpt },
-        { BTREM, &View::DrawBTrem },
-        { CHORD, &View::DrawDurationElement },
-        { CLEF, &View::DrawClef },
-        { CUSTOS, &View::DrawCustos },
-        { DIVLINE, &View::DrawDivLine },
-        { DOT, &View::DrawDot },
-        { DOTS, &View::DrawDots },
-        { EPISEMA, &View::DrawEpisema },
-        { FTREM, &View::DrawFTrem },
-        { FLAG, &View::DrawFlag },
-        { GENERIC_ELEMENT, &View::DrawGenericLayerElement },
-        { GRACEGRP, &View::DrawGraceGrp },
-        { HALFMRPT, &View::DrawHalfmRpt },
-        { KEYSIG, &View::DrawKeySig },
-        { LIGATURE, &View::DrawLigature },
-        { LIQUESCENT, &View::DrawLiquescent },
-        { MENSUR, &View::DrawMensur },
-        { METERSIG, &View::DrawMeterSig },
-        { MREST, &View::DrawMRest },
-        { MRPT, &View::DrawMRpt },
-        { MRPT2, &View::DrawMRpt2 },
-        { MSPACE, &View::DrawMSpace },
-        { MULTIREST, &View::DrawMultiRest },
-        { MULTIRPT, &View::DrawMultiRpt },
-        { NC, &View::DrawNc },
-        { NOTE, &View::DrawDurationElement },
-        { NEUME, &View::DrawNeume },
-        { ORISCUS, &View::DrawOriscus },
-        { PLICA, &View::DrawPlica },
-        { PROPORT, &View::DrawProport },
-        { QUILISMA, &View::DrawQuilisma },
-        { STROPHICUS, &View::DrawStrophicus },
-        { REST, &View::DrawDurationElement },
-        { SPACE, &View::DrawSpace },
-        { STEM, &View::DrawStem },
-        { SYL, &View::DrawSyl },
-        { SYLLABLE, &View::DrawSyllable },
-        { TABDURSYM, &View::DrawTabDurSym },
-        { TABGRP, &View::DrawTabGrp },
-        { TUPLET, &View::DrawTuplet },
-        { VOLTA, &View::DrawVolta },
-    };
+    const LayerElementDrawers &drawers = GetLayerElementDrawers();
 
     const auto drawer = drawers.find(element->GetClassId());
     if (drawer != drawers.end()) {
@@ -2469,6 +2435,42 @@ void View::DrawCursor(DeviceContext *dc, LayerElement *element, Layer *layer, St
     }
 
     dc->EndCustomGraphic();
+}
+
+//----------------------------------------------------------------------------
+// View - layer element drawers
+//----------------------------------------------------------------------------
+
+void View::RegisterElementDrawers(LayerElementDrawers &drawers)
+{
+    drawers[ACCID] = &View::DrawAccid;
+    drawers[ARTIC] = &View::DrawArtic;
+    drawers[BARLINE] = &View::DrawBarLine;
+    drawers[BEATRPT] = &View::DrawBeatRpt;
+    drawers[BTREM] = &View::DrawBTrem;
+    drawers[CHORD] = &View::DrawDurationElement;
+    drawers[CLEF] = &View::DrawClef;
+    drawers[CUSTOS] = &View::DrawCustos;
+    drawers[DOT] = &View::DrawDot;
+    drawers[DOTS] = &View::DrawDots;
+    drawers[FLAG] = &View::DrawFlag;
+    drawers[GENERIC_ELEMENT] = &View::DrawGenericLayerElement;
+    drawers[GRACEGRP] = &View::DrawGraceGrp;
+    drawers[HALFMRPT] = &View::DrawHalfmRpt;
+    drawers[KEYSIG] = &View::DrawKeySig;
+    drawers[METERSIG] = &View::DrawMeterSig;
+    drawers[MREST] = &View::DrawMRest;
+    drawers[MRPT] = &View::DrawMRpt;
+    drawers[MRPT2] = &View::DrawMRpt2;
+    drawers[MSPACE] = &View::DrawMSpace;
+    drawers[MULTIREST] = &View::DrawMultiRest;
+    drawers[MULTIRPT] = &View::DrawMultiRpt;
+    drawers[NOTE] = &View::DrawDurationElement;
+    drawers[REST] = &View::DrawDurationElement;
+    drawers[SPACE] = &View::DrawSpace;
+    drawers[STEM] = &View::DrawStem;
+    drawers[SYL] = &View::DrawSyl;
+    drawers[VOLTA] = &View::DrawVolta;
 }
 
 } // namespace vrv

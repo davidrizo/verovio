@@ -470,4 +470,14 @@ void View::DrawBeamSpan(DeviceContext *dc, BeamSpan *beamSpan, System *system, O
     }
 }
 
+//----------------------------------------------------------------------------
+// View - layer element drawers
+//----------------------------------------------------------------------------
+
+void View::RegisterBeamDrawers(LayerElementDrawers &drawers)
+{
+    drawers[BEAM] = &View::DrawBeam;
+    drawers[FTREM] = &View::DrawFTrem;
+}
+
 } // namespace vrv

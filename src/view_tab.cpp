@@ -296,4 +296,14 @@ void View::DrawTabDurSym(DeviceContext *dc, LayerElement *element, Layer *layer,
     dc->EndGraphic(tabDurSym, this);
 }
 
+//----------------------------------------------------------------------------
+// View - layer element drawers
+//----------------------------------------------------------------------------
+
+void View::RegisterTabDrawers(LayerElementDrawers &drawers)
+{
+    drawers[TABDURSYM] = &View::DrawTabDurSym;
+    drawers[TABGRP] = &View::DrawTabGrp;
+}
+
 } // namespace vrv

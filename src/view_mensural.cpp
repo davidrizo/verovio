@@ -752,4 +752,16 @@ data_STEMDIRECTION View::GetMensuralStemDir(Layer *layer, Note *note, int vertic
     return stemDir;
 }
 
+//----------------------------------------------------------------------------
+// View - layer element drawers
+//----------------------------------------------------------------------------
+
+void View::RegisterMensuralDrawers(LayerElementDrawers &drawers)
+{
+    drawers[LIGATURE] = &View::DrawLigature;
+    drawers[MENSUR] = &View::DrawMensur;
+    drawers[PLICA] = &View::DrawPlica;
+    drawers[PROPORT] = &View::DrawProport;
+}
+
 } // namespace vrv

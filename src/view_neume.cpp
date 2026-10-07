@@ -319,4 +319,21 @@ void View::DrawNcGlyphs(DeviceContext *dc, Nc *nc, Staff *staff)
     }
 }
 
+//----------------------------------------------------------------------------
+// View - layer element drawers
+//----------------------------------------------------------------------------
+
+void View::RegisterNeumeDrawers(LayerElementDrawers &drawers)
+{
+    drawers[DIVLINE] = &View::DrawDivLine;
+    drawers[EPISEMA] = &View::DrawEpisema;
+    drawers[LIQUESCENT] = &View::DrawLiquescent;
+    drawers[NC] = &View::DrawNc;
+    drawers[NEUME] = &View::DrawNeume;
+    drawers[ORISCUS] = &View::DrawOriscus;
+    drawers[QUILISMA] = &View::DrawQuilisma;
+    drawers[STROPHICUS] = &View::DrawStrophicus;
+    drawers[SYLLABLE] = &View::DrawSyllable;
+}
+
 } // namespace vrv

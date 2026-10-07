@@ -212,4 +212,13 @@ void View::DrawTupletNum(DeviceContext *dc, LayerElement *element, Layer *layer,
     return;
 }
 
+//----------------------------------------------------------------------------
+// View - layer element drawers
+//----------------------------------------------------------------------------
+
+void View::RegisterTupletDrawers(LayerElementDrawers &drawers)
+{
+    drawers[TUPLET] = &View::DrawTuplet;
+}
+
 } // namespace vrv

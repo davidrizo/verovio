@@ -9,6 +9,7 @@
 #define __VRV_RENDERER_H__
 
 #include <optional>
+#include <unordered_map>
 
 #include "devicecontextbase.h"
 #include "scoredef.h"
@@ -281,6 +282,23 @@ protected:
      */
     ///@{
     void DrawLayerElement(DeviceContext *dc, LayerElement *element, Layer *layer, Staff *staff, Measure *measure);
+    ///@}
+
+    /**
+     * @name Drawing functions by layer element class.
+     * Each view_*.cpp registers the layer elements it draws in its own RegisterXXXDrawers function, and
+     * GetLayerElementDrawers calls them all. Adding a layer element only touches the file that draws it.
+     */
+    ///@{
+    using LayerElementDrawer = void (View::*)(DeviceContext *, LayerElement *, Layer *, Staff *, Measure *);
+    using LayerElementDrawers = std::unordered_map<ClassId, LayerElementDrawer>;
+    static const LayerElementDrawers &GetLayerElementDrawers();
+    static void RegisterBeamDrawers(LayerElementDrawers &drawers);
+    static void RegisterElementDrawers(LayerElementDrawers &drawers);
+    static void RegisterMensuralDrawers(LayerElementDrawers &drawers);
+    static void RegisterNeumeDrawers(LayerElementDrawers &drawers);
+    static void RegisterTabDrawers(LayerElementDrawers &drawers);
+    static void RegisterTupletDrawers(LayerElementDrawers &drawers);
     ///@}
 
     /**
