@@ -26,6 +26,11 @@ InputFormatRegistry &InputFormatRegistry::GetInstance()
     return s_instance;
 }
 
+FileFormat InputFormatRegistry::NewFormatId()
+{
+    return static_cast<FileFormat>(static_cast<int>(SERIALIZATION) + 1 + m_customFormats++);
+}
+
 void InputFormatRegistry::Register(const Format &format)
 {
     m_formats.push_back(format);

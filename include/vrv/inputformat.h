@@ -55,6 +55,12 @@ public:
 
     static InputFormatRegistry &GetInstance();
 
+    /**
+     * Returns an id for a format that is not in the FileFormat enum, so that a new format does not need a new
+     * enum value. The ids start after the last enumerator.
+     */
+    FileFormat NewFormatId();
+
     void Register(const Format &format);
     /**
      * Detectors are tried by increasing priority. Priorities must be unique: the order matters
@@ -71,6 +77,7 @@ private:
     InputFormatRegistry() = default;
 
 private:
+    int m_customFormats = 0;
     std::vector<Format> m_formats;
     std::vector<std::pair<int, Detector>> m_detectors;
 };
